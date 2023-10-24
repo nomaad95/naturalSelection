@@ -18,6 +18,7 @@ END_FONT = pygame.font.SysFont("comicsans", 70)
 clock = pygame.time.Clock()
 gen = 0
 selecteds = 0
+alive = 100
 
 class Mouse:
     rotation = 25
@@ -87,13 +88,12 @@ def draw_window(win, mouses, obstacles):
     if gen == 0:
          gen = 1
     # generations
-    score_label = STAT_FONT.render("Gens: " + str("test"),1,(200,200,255))
-    win.blit(score_label, (10, 10))
-
+    generation_label = STAT_FONT.render("Generation: " + str(gen),1,(200,200,255))
     # alive
-    score_label = STAT_FONT.render("Generation: " + str(gen),1,(200,200,255))
+    survivors_label = STAT_FONT.render("Alive: " + str(alive),1,(200,200,255))
     win.blit(background, (0,0))
-    win.blit(score_label, (1, 30))
+    win.blit(generation_label, (1, 30))
+    win.blit(survivors_label, (1, 100))
     for mouse in mouses:
         mouse.draw(win)
     for obstacle in obstacles:
@@ -105,6 +105,7 @@ def draw_window(win, mouses, obstacles):
 def main(genomes, config):
     global gen
     global selecteds
+    global alive
     gen += 1
     networks = []
     ges = []
@@ -120,7 +121,8 @@ def main(genomes, config):
     obstacles = []
     # for i in range(10):
     #     obstacles.append(Obstacle(random.randint(0,600),random.randint(0,600)))
-    obstacles.append(Obstacle(400,250))
+    obstacles.append(Obstacle(450,250))
+    obstacles.append(Obstacle(410,400))
     obstacles.append(Obstacle(250,450))
     obstacles.append(Obstacle(150,600))
     obstacles.append(Obstacle(200,300))
@@ -130,6 +132,7 @@ def main(genomes, config):
     run = True
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
     collide = False
+    alive = 100
     while run:
         clock.tick(30)
         for event in pygame.event.get():
@@ -144,7 +147,8 @@ def main(genomes, config):
         #     mouse.move(0.5)
         for x,mouse in enumerate(mouses):
             if mouse.rotation > 170 and mouse.rotation < 185:
-                mouses.remove(mouse)
+                mouses.pop(x)
+                alive -= 1
             if mouse.y > 10:
                 mouse.move(2)
                 ges[x].fitness += 0.1
@@ -156,21 +160,28 @@ def main(genomes, config):
                 if len(remaining_obstacles) < len(obstacles):
                     # Tells the NN the aim is to go up
                     ges[x].fitness += 1
-
                 if len(remaining_obstacles) > 0:
                     remaining_obstacles.sort(key=lambda x:x.y, reverse=True)
                     # Takes the closest obstacle from the mouse
                     # Depending on y coordinates
                     obstacle = remaining_obstacles[0]
+                    # maximum distance possible between an obstacle and a mouse
+                    # (Pythagorean theorm)
                     next_obstacle = obstacle
+                    max_distance_obstacle = math.sqrt((WIN_HEIGHT**2) + (WIN_WIDTH**2))
+                    distance_obstacle = math.sqrt((mouse.x - obstacle.x)**2 + (mouse.y - obstacle.y)**2)
                     if len(remaining_obstacles) > 1:
                         next_obstacle = remaining_obstacles[1]
+                        distance_next_obstacle = math.sqrt((mouse.x - next_obstacle.x)**2 + (mouse.y - next_obstacle.y)**2)
                     # activation function for obstacle detection
+                    output = networks[x].activate((distance_obstacle/max_distance_obstacle, distance_next_obstacle/max_distance_obstacle,
+                    abs(obstacle.x - next_obstacle.x)/600))
+                    # output2 = networks[x].activate((mouse.rotation/360, mouse.rotation/360, mouse.rotation/360))
 
-                    output = networks[x].activate((abs(mouse.y - obstacle.y)/800, abs(mouse.x - obstacle.x)/600, abs(obstacle.x - next_obstacle.x)/600))
                     sign = 1
                     angle = 0
-                    if output[0] > 0.99:
+                    print(output[0])
+                    if output[0] > 0.8:
                         print(output)
                         if mouse.y > obstacle.y:
                             if(mouse.x - obstacle.x) < 0:
@@ -184,8 +195,6 @@ def main(genomes, config):
                         else:
                             sign = 1
                         angle = sign * 1
-                    if mouse.rotation > 90 and mouse.rotation < 270:
-                        ges[x].fitness -= 10
                     mouse.turn(angle)
                 else:
                     # depending on th rotation, the mouse will turn left or right
@@ -211,6 +220,7 @@ def main(genomes, config):
                     ges[x].fitness -= 1
                     mouses.pop(x)
                     networks.pop(x)
+                    alive -= 1
                 elif mouse.y < 20:
                     mouses.pop(x)
                     ges[x].fitness += 5
