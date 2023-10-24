@@ -18,7 +18,7 @@ END_FONT = pygame.font.SysFont("comicsans", 70)
 clock = pygame.time.Clock()
 gen = 0
 selecteds = 0
-alive = 100
+alive = 200
 
 class Mouse:
     rotation = 25
@@ -58,6 +58,10 @@ class Mouse:
     def get_mask(self):
         return pygame.mask.from_surface(self.image.convert_alpha())
 
+    def draw_radar(self, win, obstacle_x, obstacle_y):
+        pygame.draw.line(win, pygame.Color(0,0,0), (self.x, self.y), (obstacle_x, obstacle_y))
+        pygame.display.flip()
+
 class Obstacle:
     def __init__(self, x, y):
         self.x = x
@@ -91,7 +95,7 @@ def draw_window(win, mouses, obstacles):
     generation_label = STAT_FONT.render("Generation: " + str(gen),1,(200,200,255))
     # alive
     survivors_label = STAT_FONT.render("Alive: " + str(alive),1,(200,200,255))
-    win.blit(background, (0,0))
+    win.fill((255,255,255))
     win.blit(generation_label, (1, 30))
     win.blit(survivors_label, (1, 100))
     for mouse in mouses:
@@ -130,9 +134,9 @@ def main(genomes, config):
 
     collision = False
     run = True
-    win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+    win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT),1,1)
+    print(win)
     collide = False
-    alive = 100
     while run:
         clock.tick(30)
         for event in pygame.event.get():
@@ -141,6 +145,7 @@ def main(genomes, config):
         if len(mouses) > 0:
             pass
         else:
+            alive = 50
             run = False
         # if not collide:
         #     mouse.turn(0.1)
@@ -150,7 +155,7 @@ def main(genomes, config):
                 mouses.pop(x)
                 alive -= 1
             if mouse.y > 10:
-                mouse.move(2)
+                mouse.move(1.8)
                 ges[x].fitness += 0.1
                 remaining_obstacles = []
                 for obs in obstacles:
@@ -165,24 +170,25 @@ def main(genomes, config):
                     # Takes the closest obstacle from the mouse
                     # Depending on y coordinates
                     obstacle = remaining_obstacles[0]
+                    x_obstacle = obstacle.x + (obstacle.image.get_width()/2)
+                    mouse.draw_radar(win, x_obstacle, obstacle.y)
                     # maximum distance possible between an obstacle and a mouse
                     # (Pythagorean theorm)
-                    next_obstacle = obstacle
+                    next_obstacle = 0
+                    x__next_obstacle = 0
                     max_distance_obstacle = math.sqrt((WIN_HEIGHT**2) + (WIN_WIDTH**2))
-                    distance_obstacle = math.sqrt((mouse.x - obstacle.x)**2 + (mouse.y - obstacle.y)**2)
+                    distance_obstacle = math.sqrt((mouse.x - x_obstacle)**2 + (mouse.y - obstacle.y)**2)
+                    distance_next_obstacle = 0
                     if len(remaining_obstacles) > 1:
                         next_obstacle = remaining_obstacles[1]
-                        distance_next_obstacle = math.sqrt((mouse.x - next_obstacle.x)**2 + (mouse.y - next_obstacle.y)**2)
+                        x_next_obstacle = obstacle.x + (obstacle.image.get_width()/2)
+                        distance_next_obstacle = math.sqrt((mouse.x - x_next_obstacle)**2 + (mouse.y - next_obstacle.y)**2)
                     # activation function for obstacle detection
-                    output = networks[x].activate((distance_obstacle/max_distance_obstacle, distance_next_obstacle/max_distance_obstacle,
-                    abs(obstacle.x - next_obstacle.x)/600))
-                    # output2 = networks[x].activate((mouse.rotation/360, mouse.rotation/360, mouse.rotation/360))
-
+                    output = networks[x].activate((distance_obstacle/(max_distance_obstacle),
+                        distance_next_obstacle/(max_distance_obstacle), obstacle.x/WIN_WIDTH ))
                     sign = 1
                     angle = 0
-                    print(output[0])
-                    if output[0] > 0.8:
-                        print(output)
+                    if output[0] > 0.6:
                         if mouse.y > obstacle.y:
                             if(mouse.x - obstacle.x) < 0:
                                 sign = 1
