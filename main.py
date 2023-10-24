@@ -18,7 +18,7 @@ END_FONT = pygame.font.SysFont("comicsans", 70)
 clock = pygame.time.Clock()
 gen = 0
 selecteds = 0
-alive = 200
+alive = 50
 
 class Mouse:
     rotation = 25
@@ -59,7 +59,7 @@ class Mouse:
         return pygame.mask.from_surface(self.image.convert_alpha())
 
     def draw_radar(self, win, obstacle_x, obstacle_y):
-        pygame.draw.line(win, pygame.Color(0,0,0), (self.x, self.y), (obstacle_x, obstacle_y))
+        pygame.draw.line(win, pygame.Color(0,0,0), (self.x, self.y), (obstacle_x, obstacle_y), width = 2)
         pygame.display.flip()
 
 class Obstacle:
@@ -159,7 +159,7 @@ def main(genomes, config):
                 ges[x].fitness += 0.1
                 remaining_obstacles = []
                 for obs in obstacles:
-                    # adds obstacles still above the mouse
+                    # Adds obstacles still above the mouse
                     if obs.y < mouse.y:
                         remaining_obstacles.append(obs)
                 if len(remaining_obstacles) < len(obstacles):
@@ -170,31 +170,44 @@ def main(genomes, config):
                     # Takes the closest obstacle from the mouse
                     # Depending on y coordinates
                     obstacle = remaining_obstacles[0]
+                    # Takes the middle of the obstacle as x coordinate
                     x_obstacle = obstacle.x + (obstacle.image.get_width()/2)
-                    mouse.draw_radar(win, x_obstacle, obstacle.y)
-                    # maximum distance possible between an obstacle and a mouse
+                    # mouse.draw_radar(win, x_obstacle, obstacle.y)
                     # (Pythagorean theorm)
                     next_obstacle = 0
                     x__next_obstacle = 0
+                    # Maximum distance possible between an obstacle and a mouse
                     max_distance_obstacle = math.sqrt((WIN_HEIGHT**2) + (WIN_WIDTH**2))
+                    # Distance between mouse and obstacle
                     distance_obstacle = math.sqrt((mouse.x - x_obstacle)**2 + (mouse.y - obstacle.y)**2)
+                    # Initiates the distance of the next_obstacle to
                     distance_next_obstacle = 0
                     if len(remaining_obstacles) > 1:
                         next_obstacle = remaining_obstacles[1]
+                        # Takes the middle of the obstacle as x coordinate
                         x_next_obstacle = obstacle.x + (obstacle.image.get_width()/2)
                         distance_next_obstacle = math.sqrt((mouse.x - x_next_obstacle)**2 + (mouse.y - next_obstacle.y)**2)
-                    # activation function for obstacle detection
+                    # Activation function for obstacle detection
                     output = networks[x].activate((distance_obstacle/(max_distance_obstacle),
-                        distance_next_obstacle/(max_distance_obstacle), obstacle.x/WIN_WIDTH ))
+                        distance_next_obstacle/(max_distance_obstacle), x_obstacle/WIN_WIDTH ))
+                    # Flag to determine wether to turn right or left
                     sign = 1
+                    # Angle used for the rotation
                     angle = 0
+                    # Decides wether to turn or not based
+                    # On the result of the activation function
+                    # Enters the condition if the mouse is too close to the
+                    # Current obstacle
                     if output[0] > 0.6:
                         if mouse.y > obstacle.y:
-                            if(mouse.x - obstacle.x) < 0:
+                            # If we're at the left of the obstacle we turn left
+                            if(mouse.x - x_obstacle) < 0:
                                 sign = 1
+                            # Else, we turn right
                             else:
                                 sign = -1
                             angle = sign * (1 -(1/abs(mouse.x - obstacle.x)))
+                    # Else we go up
                     else:
                         if mouse.rotation > 0 and mouse.rotation < 180:
                             sign = -1
@@ -213,6 +226,7 @@ def main(genomes, config):
                     else:
                         angle = 1
                     mouse.turn(angle* (1 - (mouse.rotation/(mouse.rotation + 360))))
+            # If all the obstacles have been passed, we increase the NN fitness
             else:
                 selecteds += 1
                 ges[x].fitness += 5
