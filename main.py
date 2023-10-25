@@ -135,7 +135,6 @@ def main(genomes, config):
     collision = False
     run = True
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT),1,1)
-    print(win)
     collide = False
     while run:
         clock.tick(30)
@@ -145,18 +144,22 @@ def main(genomes, config):
         if len(mouses) > 0:
             pass
         else:
-            alive = 50
+            alive = 100
             run = False
         # if not collide:
         #     mouse.turn(0.1)
         #     mouse.move(0.5)
         for x,mouse in enumerate(mouses):
+            # Removal of mouses going upside down
             if mouse.rotation > 170 and mouse.rotation < 185:
+                ges[x].fitness =- 1
                 mouses.pop(x)
                 alive -= 1
+            # Greeting of mouses going up
+            if mouse.rotation < 90 or mouse.rotation > 270:
+                ges[x].fitness += 1
             if mouse.y > 10:
                 mouse.move(1.8)
-                ges[x].fitness += 0.1
                 remaining_obstacles = []
                 for obs in obstacles:
                     # Adds obstacles still above the mouse
@@ -180,6 +183,9 @@ def main(genomes, config):
                     max_distance_obstacle = math.sqrt((WIN_HEIGHT**2) + (WIN_WIDTH**2))
                     # Distance between mouse and obstacle
                     distance_obstacle = math.sqrt((mouse.x - x_obstacle)**2 + (mouse.y - obstacle.y)**2)
+                    coeff_obstacle = (mouse.y - obstacle.y)/(mouse.x - obstacle.x)
+                    coeff_next_obstacle = 0
+                    print(coeff_obstacle)
                     # Initiates the distance of the next_obstacle to
                     distance_next_obstacle = 0
                     if len(remaining_obstacles) > 1:
@@ -187,9 +193,12 @@ def main(genomes, config):
                         # Takes the middle of the obstacle as x coordinate
                         x_next_obstacle = obstacle.x + (obstacle.image.get_width()/2)
                         distance_next_obstacle = math.sqrt((mouse.x - x_next_obstacle)**2 + (mouse.y - next_obstacle.y)**2)
+                        coeff_next_obstacle = (mouse.y - next_obstacle.y)/(mouse.x - next_obstacle.y)
                     # Activation function for obstacle detection
-                    output = networks[x].activate((distance_obstacle/(max_distance_obstacle),
-                        distance_next_obstacle/(max_distance_obstacle), x_obstacle/WIN_WIDTH ))
+                    # output = networks[x].activate((distance_obstacle/(max_distance_obstacle),
+                    #     distance_next_obstacle/(max_distance_obstacle), coeff_obstacle/3 ))
+                    output = networks[x].activate((coeff_obstacle,
+                        coeff_next_obstacle, distance_obstacle/max_distance_obstacle))
                     # Flag to determine wether to turn right or left
                     sign = 1
                     # Angle used for the rotation
@@ -198,17 +207,13 @@ def main(genomes, config):
                     # On the result of the activation function
                     # Enters the condition if the mouse is too close to the
                     # Current obstacle
-                    if output[0] > 0.6:
-                        if mouse.y > obstacle.y:
-                            # If we're at the left of the obstacle we turn left
-                            if(mouse.x - x_obstacle) < 0:
-                                sign = 1
-                            # Else, we turn right
-                            else:
-                                sign = -1
-                            angle = sign * (1 -(1/abs(mouse.x - obstacle.x)))
+                    if output[0] > 0.5 and (mouse.rotation < 90 or mouse.rotation > 270):
+                        # If we're at the left of the obstacle we turn left
+                        sign = -sign * math.copysign(1,coeff_obstacle)
+                        angle = sign * (1 -(1/abs(mouse.x - obstacle.x)))
                     # Else we go up
                     else:
+                        ges[x].fitness += 0.5
                         if mouse.rotation > 0 and mouse.rotation < 180:
                             sign = -1
                         else:
