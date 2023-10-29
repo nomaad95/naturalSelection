@@ -11,14 +11,14 @@ WIN_HEIGHT = 800
 WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
 obstacle = pygame.image.load(os.path.join("images","obstacle.png")).convert_alpha()
-mouse = pygame.image.load(os.path.join("images","mouse.png")).convert_alpha()
+mouse = pygame.image.load(os.path.join("images","mouse.svg")).convert_alpha()
 background = pygame.transform.scale2x(pygame.image.load(os.path.join("images","background.png")))
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
 END_FONT = pygame.font.SysFont("comicsans", 70)
 clock = pygame.time.Clock()
 gen = 0
 selecteds = 0
-alive = 50
+alive = 100
 
 class Mouse:
     rotation = 25
@@ -59,7 +59,7 @@ class Mouse:
         return pygame.mask.from_surface(self.image.convert_alpha())
 
     def draw_radar(self, win, obstacle_x, obstacle_y):
-        pygame.draw.line(win, pygame.Color(0,0,0), (self.x, self.y), (obstacle_x, obstacle_y), width = 2)
+        pygame.draw.line(win, pygame.Color(140,0,0), (self.x, self.y), (obstacle_x, obstacle_y), width = 2)
         pygame.display.flip()
 
 class Obstacle:
@@ -95,7 +95,7 @@ def draw_window(win, mouses, obstacles):
     generation_label = STAT_FONT.render("Generation: " + str(gen),1,(200,200,255))
     # alive
     survivors_label = STAT_FONT.render("Alive: " + str(alive),1,(200,200,255))
-    win.fill((255,255,255))
+    win.fill((0,0,0))
     win.blit(generation_label, (1, 30))
     win.blit(survivors_label, (1, 100))
     for mouse in mouses:
@@ -107,6 +107,7 @@ def draw_window(win, mouses, obstacles):
 
 
 def main(genomes, config):
+    print("appel main")
     global gen
     global selecteds
     global alive
@@ -126,10 +127,16 @@ def main(genomes, config):
     # for i in range(10):
     #     obstacles.append(Obstacle(random.randint(0,600),random.randint(0,600)))
     obstacles.append(Obstacle(450,250))
-    obstacles.append(Obstacle(410,400))
-    obstacles.append(Obstacle(250,450))
-    obstacles.append(Obstacle(150,600))
+    # obstacles.append(Obstacle(410,400))
+    # obstacles.append(Obstacle(250,450))
+    obstacles.append(Obstacle(25,400))
+    obstacles.append(Obstacle(300,525))
+    obstacles.append(Obstacle(100,600))
     obstacles.append(Obstacle(200,300))
+    obstacles.append(Obstacle(100,150))
+    obstacles.append(Obstacle(300,151))
+
+
 
 
     collision = False
@@ -178,27 +185,29 @@ def main(genomes, config):
                     # mouse.draw_radar(win, x_obstacle, obstacle.y)
                     # (Pythagorean theorm)
                     next_obstacle = 0
-                    x__next_obstacle = 0
+                    x_next_obstacle = 0
                     # Maximum distance possible between an obstacle and a mouse
                     max_distance_obstacle = math.sqrt((WIN_HEIGHT**2) + (WIN_WIDTH**2))
                     # Distance between mouse and obstacle
                     distance_obstacle = math.sqrt((mouse.x - x_obstacle)**2 + (mouse.y - obstacle.y)**2)
-                    coeff_obstacle = (mouse.y - obstacle.y)/(mouse.x - obstacle.x)
+                    angle_obstacle = math.degrees(math.atan((mouse.y - obstacle.y)/(mouse.x - x_obstacle + 0.00000001)))
                     coeff_next_obstacle = 0
-                    print(coeff_obstacle)
                     # Initiates the distance of the next_obstacle to
                     distance_next_obstacle = 0
+                    # Greets the NN when it stands far from the obstacles
                     if len(remaining_obstacles) > 1:
                         next_obstacle = remaining_obstacles[1]
                         # Takes the middle of the obstacle as x coordinate
                         x_next_obstacle = obstacle.x + (obstacle.image.get_width()/2)
                         distance_next_obstacle = math.sqrt((mouse.x - x_next_obstacle)**2 + (mouse.y - next_obstacle.y)**2)
-                        coeff_next_obstacle = (mouse.y - next_obstacle.y)/(mouse.x - next_obstacle.y)
+                        angle_next_obstacle = math.degrees(math.atan((mouse.y - next_obstacle.y)/(mouse.x - x_next_obstacle + 0.00000001)))
                     # Activation function for obstacle detection
                     # output = networks[x].activate((distance_obstacle/(max_distance_obstacle),
                     #     distance_next_obstacle/(max_distance_obstacle), coeff_obstacle/3 ))
-                    output = networks[x].activate((coeff_obstacle,
-                        coeff_next_obstacle, distance_obstacle/max_distance_obstacle))
+                    if coeff_next_obstacle == 0:
+                        coeff_next_obstacle = 0
+                    output = networks[x].activate(((angle_obstacle/90),
+                        angle_next_obstacle/90 , distance_next_obstacle/max_distance_obstacle))
                     # Flag to determine wether to turn right or left
                     sign = 1
                     # Angle used for the rotation
@@ -207,10 +216,13 @@ def main(genomes, config):
                     # On the result of the activation function
                     # Enters the condition if the mouse is too close to the
                     # Current obstacle
-                    if output[0] > 0.5 and (mouse.rotation < 90 or mouse.rotation > 270):
+                    # if (mouse.x == obstacle.x):
+                    #     coeff_obstacle = 100000
+                    if output[0] > 0.3 and (mouse.rotation < 90 or mouse.rotation > 300):
                         # If we're at the left of the obstacle we turn left
-                        sign = -sign * math.copysign(1,coeff_obstacle)
+                        sign = -math.copysign(1,angle_obstacle)
                         angle = sign * (1 -(1/abs(mouse.x - obstacle.x)))
+                            # print(math.copysign(1,coeff_obstacle))
                     # Else we go up
                     else:
                         ges[x].fitness += 0.5
@@ -231,6 +243,7 @@ def main(genomes, config):
                     else:
                         angle = 1
                     mouse.turn(angle* (1 - (mouse.rotation/(mouse.rotation + 360))))
+            # elif len(obstacles) == 1
             # If all the obstacles have been passed, we increase the NN fitness
             else:
                 selecteds += 1
@@ -257,7 +270,7 @@ def run(config_path):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    winner = p.run(main,50)
+    winner = p.run(main,10)
 
 if __name__ == "__main__":
     local_dir = os.path.dirname(__file__)
